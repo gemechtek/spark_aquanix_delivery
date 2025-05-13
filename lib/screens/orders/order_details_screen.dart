@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import 'package:spark_aquanix_delivery/backend/enums/order_status.dart';
 import 'package:spark_aquanix_delivery/backend/models/order_model.dart';
 import 'package:spark_aquanix_delivery/backend/providers/auth_provider.dart';
 import 'package:spark_aquanix_delivery/backend/providers/order_provider.dart';
@@ -160,14 +162,14 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
                             labelText: 'Select Status',
                             items: [
                               OrderStatus.pending,
+                              OrderStatus.orderConfirmed,
                               OrderStatus.shipped,
                               OrderStatus.outForDelivery,
                               OrderStatus.delivered,
                             ]
                                 .map((status) => DropdownMenuItem(
                                       value: status,
-                                      child: Text(
-                                          status.toString().split('.').last),
+                                      child: Text(status.toString()),
                                     ))
                                 .toList(),
                             onChanged: (value) {
@@ -193,7 +195,38 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
                                                 context, order);
                                         if (!isCodeValid) return;
                                       }
-                                      await _updateStatus(context, order);
+                                      final deliveryCode =
+                                          await _updateStatus(context, order);
+                                      String notificationBody;
+                                      if (_selectedStatus ==
+                                              OrderStatus.outForDelivery &&
+                                          deliveryCode != null) {
+                                        notificationBody =
+                                            "Hello ${order.userName}, your order for ${order.items[0].productName} (Order ID: ${order.id}) is out for delivery. Your delivery code is $deliveryCode.  'Thank you for choosing us!'}";
+                                      } else {
+                                        notificationBody =
+                                            "Hello ${order.userName}, your order for ${order.items[0].productName} (Order ID: ${order.id}) has been updated to ${_selectedStatus.toString().split('.').last}.  'Thank you for choosing us!'}";
+                                      }
+
+                                      await Provider.of<OrderProvider>(
+                                        context,
+                                        listen: false,
+                                      ).sendNotification(
+                                        order.userFcmToken,
+                                        "Order ${_selectedStatus.toString().split('.').last}",
+                                        notificationBody,
+                                      );
+
+                                      if (mounted) {
+                                        ScaffoldMessenger.of(context)
+                                            .showSnackBar(
+                                          SnackBar(
+                                            content: Text(
+                                              'Status updated to ${_selectedStatus.toString().split('.').last}',
+                                            ),
+                                          ),
+                                        );
+                                      }
                                     },
                               child: const Text('Update Status'),
                             ),
@@ -475,43 +508,196 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
       BuildContext context, OrderDetails order) async {
     if (order.deliveryCode == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Delivery code not generated yet')),
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.error_outline, color: Colors.white),
+              const SizedBox(width: 12),
+              const Text('Delivery code not generated yet'),
+            ],
+          ),
+          backgroundColor: Colors.redAccent,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        ),
       );
       return false;
     }
 
+    // Create controllers and focus nodes for each digit
+    List<TextEditingController> controllers = List.generate(
+      6,
+      (index) => TextEditingController(),
+    );
+
+    List<FocusNode> focusNodes = List.generate(
+      6,
+      (index) => FocusNode(),
+    );
+
+    // Function to check if all fields are filled and valid
+    String getFullCode() {
+      return controllers.map((controller) => controller.text).join();
+    }
+
+    // Function to verify the code and close the dialog
+    void verifyCode(BuildContext dialogContext) {
+      String fullCode = getFullCode();
+      if (fullCode.length == 6) {
+        Navigator.pop(dialogContext, fullCode);
+      }
+    }
+
+    // Handle auto-verification
+    void autoVerifyIfComplete(BuildContext dialogContext) {
+      String fullCode = getFullCode();
+      if (fullCode.length == 6) {
+        // Short delay to allow keyboard to close
+        Future.delayed(const Duration(milliseconds: 200), () {
+          verifyCode(dialogContext);
+        });
+      }
+    }
+
     final enteredCode = await showDialog<String>(
       context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Verify Delivery Code'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text('Enter the code provided by the user:'),
-              const SizedBox(height: 12),
-              TextField(
-                controller: _codeController,
-                decoration: const InputDecoration(
-                  labelText: 'Code',
-                  border: OutlineInputBorder(),
-                ),
-                keyboardType: TextInputType.number,
-                maxLength: 6,
-              ),
-            ],
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
+          elevation: 8,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.verified_user,
+                      color: Colors.green,
+                      size: 28,
+                    ),
+                    const SizedBox(width: 12),
+                    const Text(
+                      'Verify Delivery Code',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+                const Text(
+                  'Please enter the 6-digit code provided by the customer:',
+                  style: TextStyle(fontSize: 16),
+                ),
+                const SizedBox(height: 32),
+
+                // OTP-style input fields
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: List.generate(
+                    6,
+                    (index) => SizedBox(
+                      width: 36,
+                      height: 46,
+                      child: TextField(
+                        controller: controllers[index],
+                        focusNode: focusNodes[index],
+                        textAlign: TextAlign.center,
+                        keyboardType: TextInputType.number,
+                        maxLength: 1,
+                        style: const TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        decoration: InputDecoration(
+                          counterText: '',
+                          contentPadding: EdgeInsets.zero,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: BorderSide(color: Colors.grey.shade400),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: BorderSide(
+                              color: Theme.of(dialogContext).primaryColor,
+                              width: 2,
+                            ),
+                          ),
+                          filled: true,
+                          fillColor: Colors.grey.shade50,
+                        ),
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly,
+                        ],
+                        onChanged: (value) {
+                          // Move to next field when filled
+                          if (value.isNotEmpty && index < 5) {
+                            focusNodes[index + 1].requestFocus();
+                          }
+                          // Auto-verify when all filled
+                          autoVerifyIfComplete(dialogContext);
+                        },
+                        onTap: () {
+                          // Select all text when tapped
+                          controllers[index].selection = TextSelection(
+                            baseOffset: 0,
+                            extentOffset: controllers[index].text.length,
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 32),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(dialogContext),
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 12),
+                      ),
+                      child: const Text(
+                        'Cancel',
+                        style: TextStyle(fontSize: 16),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    ElevatedButton(
+                      onPressed: () => verifyCode(dialogContext),
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 24, vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Text(
+                            'Verify',
+                            style: TextStyle(
+                                fontSize: 16, fontWeight: FontWeight.bold),
+                          ),
+                          const SizedBox(width: 8),
+                          const Icon(Icons.check_circle_outline, size: 18),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ),
-            ElevatedButton(
-              onPressed: () =>
-                  Navigator.pop(context, _codeController.text.trim()),
-              child: const Text('Verify'),
-            ),
-          ],
+          ),
         );
       },
     );
@@ -522,20 +708,54 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
 
     if (enteredCode != order.deliveryCode) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Invalid code')),
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.error_outline, color: Colors.white),
+              const SizedBox(width: 12),
+              const Text('Invalid verification code'),
+            ],
+          ),
+          backgroundColor: Colors.redAccent,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          action: SnackBarAction(
+            label: 'Try Again',
+            textColor: Colors.white,
+            onPressed: () => _showCodeVerificationDialog(context, order),
+          ),
+        ),
       );
       return false;
     }
 
+    // Show success message
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.check_circle, color: Colors.white),
+            const SizedBox(width: 12),
+            const Text('Code verified successfully'),
+          ],
+        ),
+        backgroundColor: Colors.green,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      ),
+    );
+
     return true;
   }
 
-  Future<void> _updateStatus(BuildContext context, OrderDetails order) async {
+  Future<String?> _updateStatus(
+      BuildContext context, OrderDetails order) async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     setState(() => _isUpdating = true);
     try {
-      await Provider.of<OrderProvider>(context, listen: false)
-          .updateOrderStatus(
+      String? deliveryCode =
+          await Provider.of<OrderProvider>(context, listen: false)
+              .updateOrderStatus(
         order.id!,
         _selectedStatus,
         deliveryPersonnelName: authProvider.deliveryPersonnel?.name,
@@ -548,6 +768,7 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
           ),
         );
       }
+      return deliveryCode;
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -559,5 +780,6 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
         setState(() => _isUpdating = false);
       }
     }
+    return null;
   }
 }
