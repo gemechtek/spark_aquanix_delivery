@@ -51,7 +51,7 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions web = FirebaseOptions(
     apiKey: 'AIzaSyBw1Rq1zO2e1nbInHiWe12YaCWXMJzBqPo',
-    appId: '1:542645939884:web:c18bd508b49a43e80bb909',
+    appId: '1:542645939884:web:4d3f50bd9f975ea70bb909',
     messagingSenderId: '542645939884',
     projectId: 'gemechtek-19a37',
     authDomain: 'gemechtek-19a37.firebaseapp.com',
@@ -59,10 +59,11 @@ class DefaultFirebaseOptions {
   );
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyCqLtYMkgRZ-nMXx30-yp4aB91iExcXMik',
-    appId: '1:542645939884:android:495129d1f7633cb70bb909',
+    apiKey: 'AIzaSyBIJRO7FeJhi5liN-rhnR4s79C8kedB0Gw',
+    appId: '1:542645939884:android:c9f36b72268190f40bb909',
     messagingSenderId: '542645939884',
     projectId: 'gemechtek-19a37',
     storageBucket: 'gemechtek-19a37.firebasestorage.app',
   );
+
 }

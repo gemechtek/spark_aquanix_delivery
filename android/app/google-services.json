@@ -15,6 +15,31 @@
       "oauth_client": [],
       "api_key": [
         {
+          "current_key": "AIzaSyBIJRO7FeJhi5liN-rhnR4s79C8kedB0Gw"
+        },
+        {
+          "current_key": "AIzaSyCqLtYMkgRZ-nMXx30-yp4aB91iExcXMik"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:542645939884:android:c9f36b72268190f40bb909",
+        "android_client_info": {
+          "package_name": "com.sparkAquanixDelivery.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBIJRO7FeJhi5liN-rhnR4s79C8kedB0Gw"
+        },
+        {
           "current_key": "AIzaSyCqLtYMkgRZ-nMXx30-yp4aB91iExcXMik"
         }
       ],
@@ -33,6 +58,9 @@
       },
       "oauth_client": [],
       "api_key": [
+        {
+          "current_key": "AIzaSyBIJRO7FeJhi5liN-rhnR4s79C8kedB0Gw"
+        },
         {
           "current_key": "AIzaSyCqLtYMkgRZ-nMXx30-yp4aB91iExcXMik"
         }

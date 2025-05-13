@@ -58,7 +58,9 @@ class OrderProvider with ChangeNotifier {
       // Generate delivery code when status is outForDelivery
       if (status == OrderStatus.outForDelivery) {
         final deliveryCode =
-            (1000 + (DateTime.now().millisecondsSinceEpoch % 9000)).toString();
+            (100000 + (DateTime.now().millisecondsSinceEpoch % 900000))
+                .toString();
+
         updates['deliveryCode'] = deliveryCode;
       }
 

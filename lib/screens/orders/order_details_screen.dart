@@ -159,6 +159,7 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
                             value: _selectedStatus,
                             labelText: 'Select Status',
                             items: [
+                              OrderStatus.pending,
                               OrderStatus.shipped,
                               OrderStatus.outForDelivery,
                               OrderStatus.delivered,
@@ -496,7 +497,7 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
                   border: OutlineInputBorder(),
                 ),
                 keyboardType: TextInputType.number,
-                maxLength: 4,
+                maxLength: 6,
               ),
             ],
           ),

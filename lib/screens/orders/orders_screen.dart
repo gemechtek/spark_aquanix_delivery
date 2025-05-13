@@ -18,11 +18,13 @@ class _OrdersScreenState extends State<OrdersScreen> {
   @override
   void initState() {
     super.initState();
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    if (authProvider.deliveryPersonnel != null) {
-      Provider.of<OrderProvider>(context, listen: false)
-          .fetchOrders(authProvider.deliveryPersonnel!.id);
-    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      if (authProvider.deliveryPersonnel != null) {
+        Provider.of<OrderProvider>(context, listen: false)
+            .fetchOrders(authProvider.deliveryPersonnel!.id);
+      }
+    });
   }
 
   @override
