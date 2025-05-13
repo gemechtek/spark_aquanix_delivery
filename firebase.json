@@ -1,0 +1,21 @@
+{
+	"flutter": {
+		"platforms": {
+			"android": {
+				"default": {
+					"projectId": "gemechtek-19a37",
+					"appId": "1:542645939884:android:495129d1f7633cb70bb909",
+					"fileOutput": "android/app/google-services.json"
+				}
+			},
+			"dart": {
+				"lib/firebase_options.dart": {
+					"projectId": "gemechtek-19a37",
+					"configurations": {
+						"android": "1:542645939884:android:495129d1f7633cb70bb909"
+					}
+				}
+			}
+		}
+	}
+}
