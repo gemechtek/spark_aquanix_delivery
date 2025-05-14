@@ -1,9 +1,8 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
-import 'package:spark_aquanix_delivery/backend/models/order_model.dart';
+
 import 'package:spark_aquanix_delivery/backend/providers/auth_provider.dart';
 import 'package:spark_aquanix_delivery/backend/providers/notification_provider.dart';
 import 'package:spark_aquanix_delivery/backend/providers/order_provider.dart';
@@ -16,11 +15,6 @@ import 'package:spark_aquanix_delivery/screens/auth/signup.dart';
 import 'package:spark_aquanix_delivery/screens/notification/notification_screen.dart';
 import 'package:spark_aquanix_delivery/screens/orders/order_details_screen.dart';
 import 'package:spark_aquanix_delivery/screens/orders/orders_screen.dart';
-
-// Global navigator keys for root and shell navigation
-final GlobalKey<NavigatorState> _rootNavigatorKey = GlobalKey<NavigatorState>();
-final GlobalKey<NavigatorState> _shellNavigatorKey =
-    GlobalKey<NavigatorState>();
 
 // Firebase background message handler
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
@@ -80,14 +74,28 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => OrderProvider()),
         ChangeNotifierProvider(create: (_) => NotificationProvider())
       ],
-      child: MaterialApp.router(
+      child: MaterialApp(
         debugShowCheckedModeBanner: false,
         title: 'Spark Aquanix Delivery',
         theme: ThemeData(
           primarySwatch: Colors.blue,
           scaffoldBackgroundColor: Colors.grey.shade100,
         ),
-        routerConfig: appRouter,
+        // Define named routes
+        initialRoute: '/permission',
+        routes: {
+          '/permission': (context) => const PermissionHandlerScreen(),
+          '/login': (context) => const LoginScreen(),
+          '/signup': (context) => const SignupScreen(),
+          '/forgotPassword': (context) => const ForgotPasswordScreen(),
+          '/orders': (context) => const AppShell(child: OrdersScreen()),
+          '/notifications': (context) =>
+              const AppShell(child: NotificationsScreen()),
+          // Note: OrderDetailsScreen is handled dynamically with push
+        },
+        onUnknownRoute: (settings) => MaterialPageRoute(
+          builder: (context) => const Center(child: Text('Error 404')),
+        ),
       ),
     );
   }
@@ -107,107 +115,6 @@ class AppShell extends StatelessWidget {
     );
   }
 }
-
-// Navigation configuration using GoRouter
-final GoRouter appRouter = GoRouter(
-  navigatorKey: _rootNavigatorKey,
-  initialLocation: '/permission',
-  refreshListenable: AuthProvider(),
-  debugLogDiagnostics: true,
-  errorBuilder: (context, state) => const Center(child: Text('Error 404')),
-  redirect: (context, state) {
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final isLoggedIn = authProvider.isLoggedIn;
-    final isLoggingIn = state.matchedLocation == '/login' ||
-        state.matchedLocation == '/signup' ||
-        state.matchedLocation == '/forgotPassword';
-    final isPermissionScreen = state.matchedLocation == '/permission';
-
-    if (isPermissionScreen) {
-      return null;
-    }
-    if (!isLoggedIn && !isLoggingIn) {
-      return '/login';
-    }
-    if (isLoggedIn && isLoggingIn) {
-      return '/orders';
-    }
-    return null;
-  },
-  routes: [
-    GoRoute(
-      path: '/permission',
-      name: 'permission',
-      builder: (context, state) => const PermissionHandlerScreen(),
-    ),
-    GoRoute(
-      path: '/login',
-      name: 'login',
-      builder: (context, state) => const LoginScreen(),
-    ),
-    GoRoute(
-      path: '/signup',
-      name: 'signup',
-      builder: (context, state) => const SignupScreen(),
-    ),
-    GoRoute(
-      path: '/forgotPassword',
-      name: 'forgotPassword',
-      builder: (context, state) => const ForgotPasswordScreen(),
-    ),
-    ShellRoute(
-      navigatorKey: _shellNavigatorKey,
-      builder: (context, state, child) => AppShell(child: child),
-      routes: [
-        GoRoute(
-          path: '/orders',
-          name: 'orders',
-          builder: (context, state) => const OrdersScreen(),
-          routes: [
-            GoRoute(
-              path: ':orderId',
-              name: 'order-details',
-              builder: (context, state) {
-                final orderId = state.pathParameters['orderId'];
-                final passedOrder = state.extra is OrderDetails
-                    ? state.extra as OrderDetails
-                    : null;
-
-                if (passedOrder != null) {
-                  return OrderDetailsScreen(order: passedOrder);
-                }
-
-                // if (orderId != null) {
-                //   return FutureBuilder<OrderDetails?>(
-                //     future: Provider.of<OrderProvider>(context, listen: false)
-                //         .getOrderById(orderId),
-                //     builder: (context, snapshot) {
-                //       if (snapshot.connectionState == ConnectionState.waiting) {
-                //         return const Center(child: CircularProgressIndicator());
-                //       } else if (snapshot.hasError) {
-                //         return Center(child: Text('Error: ${snapshot.error}'));
-                //       } else {
-                //         final order = snapshot.data;
-                //         return OrderDetailsScreen(order: order!);
-                //       }
-                //     },
-                //   );
-                // }
-
-                return const OrderDetailsScreen(order: null);
-              },
-            ),
-          ],
-        ),
-        GoRoute(
-          path: '/notifications',
-          name: 'notifications',
-          builder: (context, state) => const NotificationsScreen(),
-        ),
-      ],
-    ),
-  ],
-);
 
 // Permission Handler Screen
 class PermissionHandlerScreen extends StatefulWidget {
@@ -238,18 +145,26 @@ class _PermissionHandlerScreenState extends State<PermissionHandlerScreen> {
       if (isLoggedIn) {
         if (pendingOrderId != null && pendingOrderId.isNotEmpty) {
           await NotificationService.clearInitialOrderId();
-          context.pushNamed('order-details',
-              pathParameters: {'orderId': pendingOrderId});
+          // Navigate to OrderDetailsScreen with orderId
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => OrderDetailsScreen(
+                order: null, // Order will be fetched dynamically or passed
+              ),
+              settings: RouteSettings(arguments: pendingOrderId),
+            ),
+          );
         } else {
-          context.go('/orders');
+          Navigator.pushReplacementNamed(context, '/orders');
         }
       } else {
-        context.go('/login');
+        Navigator.pushReplacementNamed(context, '/login');
       }
     } catch (e) {
       AppLogger.log('Error in permission/navigation: $e');
       if (mounted) {
-        context.go('/login'); // Fallback to login on error
+        Navigator.pushReplacementNamed(context, '/login'); // Fallback to login
       }
     }
   }

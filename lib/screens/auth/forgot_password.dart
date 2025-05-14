@@ -32,7 +32,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: () => context.go('/login'),
+          onPressed: () => Navigator.pushNamed(context, '/login'),
         ),
       ),
       body: Consumer<AuthProvider>(
@@ -184,7 +184,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
           const SizedBox(height: 20),
           Center(
             child: TextButton(
-              onPressed: () => context.go('/login'),
+              onPressed: () => Navigator.pushNamed(context, '/login'),
               child: Text(
                 'Back to Login',
                 style: TextStyle(
@@ -270,7 +270,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
           width: double.infinity,
           height: 50,
           child: ElevatedButton(
-            onPressed: () => context.go('/login'),
+            onPressed: () => Navigator.pushNamed(context, '/login'),
             style: ElevatedButton.styleFrom(
               backgroundColor: theme.colorScheme.primary,
               foregroundColor: Colors.white,

@@ -313,8 +313,8 @@ class _LoginScreenState extends State<LoginScreen>
                                 Align(
                                   alignment: Alignment.centerRight,
                                   child: TextButton(
-                                    onPressed: () =>
-                                        context.go('/forgotPassword'),
+                                    onPressed: () => Navigator.pushNamed(
+                                        context, '/forgotPassword'),
                                     style: TextButton.styleFrom(
                                       padding: EdgeInsets.zero,
                                     ),
@@ -340,10 +340,10 @@ class _LoginScreenState extends State<LoginScreen>
                                           _passwordController.text.trim(),
                                         );
 
-                                        // If login successful, navigate to home
                                         if (authProvider.isLoggedIn &&
                                             mounted) {
-                                          context.go('/home');
+                                          Navigator.pushNamed(
+                                              context, '/orders');
                                         }
                                       }
                                     },
@@ -371,7 +371,8 @@ class _LoginScreenState extends State<LoginScreen>
                                 // Sign up link
                                 Center(
                                   child: TextButton(
-                                    onPressed: () => context.go('/signup'),
+                                    onPressed: () =>
+                                        Navigator.pushNamed(context, '/signup'),
                                     child: RichText(
                                       text: TextSpan(
                                         text: 'Don\'t have an account? ',

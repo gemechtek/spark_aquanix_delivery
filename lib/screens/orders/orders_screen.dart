@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
-import 'package:intl/intl.dart';
 import 'package:spark_aquanix_delivery/backend/enums/order_status.dart';
 import 'package:spark_aquanix_delivery/backend/providers/auth_provider.dart';
 import 'package:spark_aquanix_delivery/backend/providers/notification_provider.dart';
 import 'package:spark_aquanix_delivery/backend/providers/order_provider.dart';
+import 'package:spark_aquanix_delivery/screens/auth/login.dart';
 import 'package:spark_aquanix_delivery/screens/notification/notification_screen.dart';
+import 'package:spark_aquanix_delivery/screens/orders/list_view/order_list_view.dart';
 import 'package:spark_aquanix_delivery/screens/orders/widgets/notification_badge.dart';
 
 class OrdersScreen extends StatefulWidget {
@@ -16,12 +16,16 @@ class OrdersScreen extends StatefulWidget {
   State<OrdersScreen> createState() => _OrdersScreenState();
 }
 
-class _OrdersScreenState extends State<OrdersScreen> {
+class _OrdersScreenState extends State<OrdersScreen>
+    with SingleTickerProviderStateMixin {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+  late TabController _tabController;
 
   @override
   void initState() {
     super.initState();
+    // Initialize TabController with 2 tabs
+    _tabController = TabController(length: 2, vsync: this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
       if (authProvider.deliveryPersonnel != null) {
@@ -31,6 +35,12 @@ class _OrdersScreenState extends State<OrdersScreen> {
       Provider.of<NotificationProvider>(context, listen: false)
           .refreshNotifications();
     });
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
   }
 
   Future<void> _onRefresh(BuildContext context) async {
@@ -55,14 +65,21 @@ class _OrdersScreenState extends State<OrdersScreen> {
           Consumer<NotificationProvider>(
             builder: (context, notificationProvider, _) {
               return NotificationBadge(
-                onTap: () => Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => NotificationsScreen())),
+                onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                    builder: (_) => const NotificationsScreen())),
                 child: const Icon(Icons.notifications),
               );
             },
           ),
           const SizedBox(width: 16),
         ],
+        bottom: TabBar(
+          controller: _tabController,
+          tabs: const [
+            Tab(text: 'Ongoing'),
+            Tab(text: 'Completed'),
+          ],
+        ),
       ),
       drawer: Drawer(
         child: ListView(
@@ -109,6 +126,10 @@ class _OrdersScreenState extends State<OrdersScreen> {
               onTap: () async {
                 await authProvider.logout();
                 Navigator.of(context).pop(); // Close the drawer
+                Navigator.of(context).pushAndRemoveUntil(
+                  MaterialPageRoute(builder: (_) => const LoginScreen()),
+                  (Route<dynamic> route) => false,
+                );
               },
             ),
           ],
@@ -116,131 +137,87 @@ class _OrdersScreenState extends State<OrdersScreen> {
       ),
       body: RefreshIndicator(
         onRefresh: () => _onRefresh(context),
-        child: Consumer<OrderProvider>(
-          builder: (context, orderProvider, _) {
-            if (orderProvider.isLoading) {
-              return const Center(child: CircularProgressIndicator());
-            }
+        child: TabBarView(
+          controller: _tabController,
+          children: [
+            // Ongoing Orders Tab
+            Consumer<OrderProvider>(
+              builder: (context, orderProvider, _) {
+                if (orderProvider.isLoading) {
+                  return const Center(child: CircularProgressIndicator());
+                }
 
-            if (orderProvider.error != null) {
-              return Center(child: Text('Error: ${orderProvider.error}'));
-            }
+                if (orderProvider.error != null) {
+                  return Center(child: Text('Error: ${orderProvider.error}'));
+                }
 
-            final orders = orderProvider.orders;
+                final ongoingOrders = orderProvider.orders
+                    .where((order) => order.status != OrderStatus.delivered)
+                    .toList();
 
-            if (orders.isEmpty) {
-              return const Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.local_shipping_outlined,
-                      size: 64,
-                      color: Colors.grey,
+                if (ongoingOrders.isEmpty) {
+                  return const Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.local_shipping_outlined,
+                          size: 64,
+                          color: Colors.grey,
+                        ),
+                        SizedBox(height: 16),
+                        Text(
+                          'No ongoing orders',
+                          style: TextStyle(fontSize: 18, color: Colors.grey),
+                        ),
+                      ],
                     ),
-                    SizedBox(height: 16),
-                    Text(
-                      'No orders assigned',
-                      style: TextStyle(fontSize: 18, color: Colors.grey),
-                    ),
-                  ],
-                ),
-              );
-            }
+                  );
+                }
 
-            return ListView.builder(
-              padding: const EdgeInsets.all(16),
-              itemCount: orders.length,
-              itemBuilder: (context, index) {
-                final order = orders[index];
-                return GestureDetector(
-                  onTap: () {
-                    context.goNamed(
-                      'order-details',
-                      pathParameters: {'orderId': order.id!},
-                      extra: order,
-                    );
-                  },
-                  child: Card(
-                    margin: const EdgeInsets.only(bottom: 16),
-                    elevation: 2,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Text(
-                                      'Order #${order.id?.substring(0, 8)}',
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 14,
-                                      ),
-                                    ),
-                                    Text(
-                                      DateFormat('MMM dd, yyyy')
-                                          .format(order.createdAt),
-                                      style: const TextStyle(
-                                        color: Colors.grey,
-                                        fontSize: 12,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 8),
-                                Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Chip(
-                                      label: Text(
-                                        order.status.toString().split('.').last,
-                                        style: TextStyle(
-                                          color: order.status ==
-                                                  OrderStatus.cancelled
-                                              ? Colors.red
-                                              : Colors.green,
-                                          fontSize: 12,
-                                        ),
-                                      ),
-                                      backgroundColor:
-                                          order.status == OrderStatus.cancelled
-                                              ? Colors.red.withOpacity(0.1)
-                                              : Colors.green.withOpacity(0.1),
-                                      padding: const EdgeInsets.symmetric(
-                                          horizontal: 8),
-                                      labelPadding: const EdgeInsets.only(
-                                          left: 0, right: 0),
-                                    ),
-                                    Text(
-                                      '\$${order.total.toStringAsFixed(2)}',
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 14,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                );
+                return OrdersListView(orders: ongoingOrders);
               },
-            );
-          },
+            ),
+
+            Consumer<OrderProvider>(
+              builder: (context, orderProvider, _) {
+                if (orderProvider.isLoading) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+
+                if (orderProvider.error != null) {
+                  return Center(child: Text('Error: ${orderProvider.error}'));
+                }
+
+                // Filter completed orders
+                final completedOrders = orderProvider.orders
+                    .where((order) => order.status == OrderStatus.delivered)
+                    .toList();
+
+                if (completedOrders.isEmpty) {
+                  return const Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.check_circle_outline,
+                          size: 64,
+                          color: Colors.grey,
+                        ),
+                        SizedBox(height: 16),
+                        Text(
+                          'No completed orders',
+                          style: TextStyle(fontSize: 18, color: Colors.grey),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+
+                return OrdersListView(orders: completedOrders);
+              },
+            ),
+          ],
         ),
       ),
     );

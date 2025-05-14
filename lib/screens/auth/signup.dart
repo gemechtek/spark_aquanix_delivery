@@ -330,7 +330,7 @@ class _SignupScreenState extends State<SignupScreen> {
                                       _phoneController.text.trim(),
                                     );
                                     if (val ?? false) {
-                                      context.go('/orders');
+                                      Navigator.pushNamed(context, '/orders');
                                     }
                                   }
                                 },
@@ -372,7 +372,8 @@ class _SignupScreenState extends State<SignupScreen> {
                               style: TextStyle(color: Colors.grey[600]),
                             ),
                             TextButton(
-                              onPressed: () => context.go('/login'),
+                              onPressed: () =>
+                                  Navigator.pushNamed(context, '/login'),
                               style: TextButton.styleFrom(
                                 foregroundColor: colorScheme.primary,
                                 padding:
