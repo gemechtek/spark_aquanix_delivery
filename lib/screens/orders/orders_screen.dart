@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:spark_aquanix_delivery/backend/enums/order_status.dart';
+import 'package:spark_aquanix_delivery/backend/models/order_model.dart';
 import 'package:spark_aquanix_delivery/backend/providers/auth_provider.dart';
 import 'package:spark_aquanix_delivery/backend/providers/notification_provider.dart';
 import 'package:spark_aquanix_delivery/backend/providers/order_provider.dart';
@@ -24,13 +25,13 @@ class _OrdersScreenState extends State<OrdersScreen>
   @override
   void initState() {
     super.initState();
-    // Initialize TabController with 2 tabs
     _tabController = TabController(length: 2, vsync: this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
       if (authProvider.deliveryPersonnel != null) {
+        // Start listening to orders to keep provider state in sync (optional)
         Provider.of<OrderProvider>(context, listen: false)
-            .fetchOrders(authProvider.deliveryPersonnel!.id);
+            .listenToOrders(authProvider.deliveryPersonnel!.id);
       }
       Provider.of<NotificationProvider>(context, listen: false)
           .refreshNotifications();
@@ -46,8 +47,9 @@ class _OrdersScreenState extends State<OrdersScreen>
   Future<void> _onRefresh(BuildContext context) async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     if (authProvider.deliveryPersonnel != null) {
-      await Provider.of<OrderProvider>(context, listen: false)
-          .fetchOrders(authProvider.deliveryPersonnel!.id);
+      // Re-listen to orders to refresh provider state
+      Provider.of<OrderProvider>(context, listen: false)
+          .listenToOrders(authProvider.deliveryPersonnel!.id);
     }
     await Provider.of<NotificationProvider>(context, listen: false)
         .refreshNotifications();
@@ -56,6 +58,12 @@ class _OrdersScreenState extends State<OrdersScreen>
   @override
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context);
+
+    if (authProvider.deliveryPersonnel == null) {
+      return const Center(child: Text('Please log in to view orders'));
+    }
+
+    final deliveryPersonId = authProvider.deliveryPersonnel!.id;
 
     return Scaffold(
       key: _scaffoldKey,
@@ -125,7 +133,7 @@ class _OrdersScreenState extends State<OrdersScreen>
               title: const Text('Logout'),
               onTap: () async {
                 await authProvider.logout();
-                Navigator.of(context).pop(); // Close the drawer
+                Navigator.of(context).pop();
                 Navigator.of(context).pushAndRemoveUntil(
                   MaterialPageRoute(builder: (_) => const LoginScreen()),
                   (Route<dynamic> route) => false,
@@ -141,17 +149,20 @@ class _OrdersScreenState extends State<OrdersScreen>
           controller: _tabController,
           children: [
             // Ongoing Orders Tab
-            Consumer<OrderProvider>(
-              builder: (context, orderProvider, _) {
-                if (orderProvider.isLoading) {
+            StreamBuilder<List<OrderDetails>>(
+              stream: Provider.of<OrderProvider>(context, listen: false)
+                  .streamOrders(deliveryPersonId),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
                 }
 
-                if (orderProvider.error != null) {
-                  return Center(child: Text('Error: ${orderProvider.error}'));
+                if (snapshot.hasError) {
+                  return Center(child: Text('Error: ${snapshot.error}'));
                 }
 
-                final ongoingOrders = orderProvider.orders
+                final orders = snapshot.data ?? [];
+                final ongoingOrders = orders
                     .where((order) => order.status != OrderStatus.delivered)
                     .toList();
 
@@ -178,19 +189,21 @@ class _OrdersScreenState extends State<OrdersScreen>
                 return OrdersListView(orders: ongoingOrders);
               },
             ),
-
-            Consumer<OrderProvider>(
-              builder: (context, orderProvider, _) {
-                if (orderProvider.isLoading) {
+            // Completed Orders Tab
+            StreamBuilder<List<OrderDetails>>(
+              stream: Provider.of<OrderProvider>(context, listen: false)
+                  .streamOrders(deliveryPersonId),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
                 }
 
-                if (orderProvider.error != null) {
-                  return Center(child: Text('Error: ${orderProvider.error}'));
+                if (snapshot.hasError) {
+                  return Center(child: Text('Error: ${snapshot.error}'));
                 }
 
-                // Filter completed orders
-                final completedOrders = orderProvider.orders
+                final orders = snapshot.data ?? [];
+                final completedOrders = orders
                     .where((order) => order.status == OrderStatus.delivered)
                     .toList();
 

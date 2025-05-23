@@ -42,6 +42,37 @@ class OrderProvider with ChangeNotifier {
     }
   }
 
+// Stream to fetch orders in real-time
+  Stream<List<OrderDetails>> streamOrders(String deliveryPersonId) {
+    return FirebaseFirestore.instance
+        .collection('orders')
+        .where('deliveryPersonId', isEqualTo: deliveryPersonId)
+        .snapshots()
+        .map((snapshot) => snapshot.docs
+            .map((doc) => OrderDetails.fromFirestore(doc.data(), doc.id))
+            .toList());
+  }
+
+  // Optional: If you want to keep the orders list in sync with the stream for other uses
+  void listenToOrders(String deliveryPersonId) {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+
+    streamOrders(deliveryPersonId).listen(
+      (orders) {
+        _orders = orders;
+        _isLoading = false;
+        notifyListeners();
+      },
+      onError: (e) {
+        _error = 'Failed to stream orders: $e';
+        _isLoading = false;
+        notifyListeners();
+      },
+    );
+  }
+
   // Update order status
   Future<String?> updateOrderStatus(String orderId, OrderStatus status,
       {String? deliveryPersonnelName}) async {
