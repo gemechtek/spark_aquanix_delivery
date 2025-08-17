@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_phone_direct_caller/flutter_phone_direct_caller.dart';
 import 'package:provider/provider.dart';
 import 'package:spark_aquanix_delivery/backend/enums/order_status.dart';
 import 'package:spark_aquanix_delivery/backend/models/order_model.dart';
 import 'package:spark_aquanix_delivery/backend/providers/auth_provider.dart';
 import 'package:spark_aquanix_delivery/backend/providers/order_provider.dart';
 import 'package:intl/intl.dart';
-
+import 'package:spark_aquanix_delivery/screens/orders/widgets/make_phone_call.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'widgets/dropdown_widget.dart';
 import 'widgets/verify_bottom_sheet.dart';
 
@@ -268,7 +271,7 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
                                             ),
                                             const SizedBox(height: 4),
                                             Text(
-                                              '\$${item.totalPrice.toStringAsFixed(2)}',
+                                              '₹${item.totalPrice.toStringAsFixed(2)}',
                                               style: const TextStyle(
                                                 fontSize: 16,
                                                 fontWeight: FontWeight.w700,
@@ -285,6 +288,127 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
                             ),
                     ],
                   ),
+
+                  const SizedBox(height: 16),
+
+                  _buildCard(context,
+                      title: "Contact Customer",
+                      icon: Icons.phone,
+                      children: [
+                        _buildInfoRow(
+                          'Name',
+                          order.deliveryAddress.fullName,
+                        ),
+                        GestureDetector(
+                          onTap: () {
+                            Clipboard.setData(ClipboardData(
+                                text: order.deliveryAddress.phoneNumber));
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content:
+                                    Text('Phone number copied to clipboard'),
+                                behavior: SnackBarBehavior.floating,
+                              ),
+                            );
+                          },
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: _buildInfoRow(
+                                  'Phone',
+                                  order.deliveryAddress.phoneNumber,
+                                ),
+                              ),
+                              const Icon(Icons.copy, size: 20),
+                            ],
+                          ),
+                        ),
+                        Container(
+                          margin: const EdgeInsets.only(top: 8),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(12),
+                            color: Colors.grey.shade200,
+                          ),
+                          child: Dismissible(
+                            key: Key(
+                                'call-${order.deliveryAddress.phoneNumber}'),
+                            direction: DismissDirection.startToEnd,
+                            background: Container(
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(12),
+                                color: Colors.green,
+                              ),
+                              alignment: Alignment.centerLeft,
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 20),
+                              child: const Icon(
+                                Icons.phone,
+                                color: Colors.white,
+                              ),
+                            ),
+                            confirmDismiss: (direction) async {
+                              try {
+                                // bool success =
+                                //     await PhoneCallHelper.makePhoneCall(
+                                //   order.deliveryAddress.phoneNumber,
+                                // );
+
+                                bool? success =
+                                    await FlutterPhoneDirectCaller.callNumber(
+                                        order.deliveryAddress.phoneNumber);
+
+                                if (success == true && mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Opening phone dialer...'),
+                                      duration: Duration(seconds: 2),
+                                    ),
+                                  );
+                                } else if (mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content:
+                                          Text('Could not open phone dialer'),
+                                      backgroundColor: Colors.red,
+                                      duration: Duration(seconds: 3),
+                                    ),
+                                  );
+                                }
+                              } catch (e) {
+                                print('Error making phone call: $e');
+                                if (mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text('Error: ${e.toString()}'),
+                                      backgroundColor: Colors.red,
+                                      duration: const Duration(seconds: 3),
+                                    ),
+                                  );
+                                }
+                              }
+
+                              // Always return false to keep the widget in place
+                              return false;
+                            },
+                            dismissThresholds: const {
+                              DismissDirection.startToEnd: 0.4
+                            },
+                            child: const Padding(
+                              padding: EdgeInsets.all(16),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(Icons.arrow_forward, size: 20),
+                                  SizedBox(width: 8),
+                                  Text('Swipe to call'),
+                                  SizedBox(width: 8),
+                                  Icon(Icons.phone, size: 20),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ]),
 
                   const SizedBox(height: 16),
 
@@ -340,22 +464,22 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
                     children: [
                       _buildSummaryRow(
                         'Subtotal',
-                        '\$${order.subtotal.toStringAsFixed(2)}',
+                        '₹${order.subtotal.toStringAsFixed(2)}',
                       ),
                       const SizedBox(height: 8),
                       _buildSummaryRow(
                         'Tax',
-                        '\$${order.tax.toStringAsFixed(2)}',
+                        '₹${order.tax.toStringAsFixed(2)}',
                       ),
                       const SizedBox(height: 8),
                       _buildSummaryRow(
                         'Shipping',
-                        '\$${order.shippingCost.toStringAsFixed(2)}',
+                        '₹${order.shippingCost.toStringAsFixed(2)}',
                       ),
                       const Divider(height: 24),
                       _buildSummaryRow(
                         'Total',
-                        '\$${order.total.toStringAsFixed(2)}',
+                        '₹${order.total.toStringAsFixed(2)}',
                         isBold: true,
                       ),
                     ],

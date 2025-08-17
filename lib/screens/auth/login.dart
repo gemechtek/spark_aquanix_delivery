@@ -133,7 +133,7 @@ class _LoginScreenState extends State<LoginScreen>
                             child: Hero(
                               tag: 'app_logo',
                               child: Icon(
-                                Icons.water_drop_rounded,
+                                Icons.delivery_dining,
                                 size: 70,
                                 color: theme.colorScheme.primary,
                               ),

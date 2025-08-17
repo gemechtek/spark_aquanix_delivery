@@ -87,7 +87,7 @@ class OrdersListView extends StatelessWidget {
                                   const EdgeInsets.only(left: 0, right: 0),
                             ),
                             Text(
-                              '\$${order.total.toStringAsFixed(2)}',
+                              '₹${order.total.toStringAsFixed(2)}',
                               style: const TextStyle(
                                 fontWeight: FontWeight.bold,
                                 fontSize: 14,
